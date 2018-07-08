@@ -2,9 +2,11 @@
  * @file heap_storage.cpp
  * @author Greg Deresinski
  */
+#include <iostream>
 #include <map>
 #include <string.h>
 #include "heap_storage.h"
+#include 
 
 typedef u_init16_t u16;
 typedef u_init32_t u32;
@@ -181,14 +183,21 @@ SlottedPage* HeapFile::get(BlockID block_id) {
     return SlottedPage*; //TODO
 }
 
-//TODO
+/**
+ * Write a block back to the database file.
+ */
 void HeapFile::put(DbBlock* block) {
-    //TODO
+
+    Dbt key(&block, sizeof(block));    //TODO fix key 
+    this->db.put(NULL, &key, block->get_block(), 0);
 }
 
+/**
+ * Sequence of all block ids.
+ */
 //TODO
 BlockIDs* HeapFile::block_ids() {
-    //TODO
+    //TODO return (i for i in range(1, self.last + 1))
 }
 
 //TODO
@@ -201,6 +210,7 @@ u32 HeapFile::get_last_block_id() {
 //u32 last;
 //bool closed;
 //Db db;
+
 
 //TODO
 void HeapFile::db_open(uint flags=0) {
@@ -225,12 +235,16 @@ HeapTable::~HeapTable() {
 
 }
 
-// Executes CREATE_TABLE table_name { cols }
+/**
+ *  Executes CREATE_TABLE table_name { cols }
+ */
 void HeapTable::create() {
     this->file.create();
 }
 
-// If table doesn't exist, create a new one
+/**
+ *  If table doesn't exist, create a new one
+ */
 void HeapTable::create_if_not_exists() {
     try {
         this->file.open();
@@ -240,38 +254,60 @@ void HeapTable::create_if_not_exists() {
     }
 }
 
-// Executes a DROP TABLE table_name
+/**
+ * Executes a DROP TABLE table_name
+ */
 void HeapTable::drop() {
     this->file.delete();
 }
 
-// Open an existing table
+/**
+ * Open existing table.
+ * Enables: insert, update, delete, select, project
+ */
 void HeapTable::open() {
     this->file.open();
 }
 
-// Closes current table
+/**
+ * Closes the table.
+ * Disables: insert, update, delete, select, project
+ */
 void HeapTable::close() {
     this->file.close();
 }
 
-//TODO
+/**
+ * Executes INSERT INTO table_name (row_keys) VALUES (row_values)
+ * @return a Handle of the inserted row
+ */
 Handle HeapTable::insert(const ValueDict* row) {
     this->file.open();
     return append(validate(this->row));
 }
 
+/**
+ * Executes UPDATE INFO table_name SET new_values WHERE handle
+ * where handle is sufficient to identify one specific record
+ */
 //TODO
 void HeapTable::update(const Handle handle, const ValueDict* new_values) {
     //TODO
+    throw TypeError("FIXME");
 }
 
-//TODO
+/**
+ * Executes DELETE FROM table_name WHERE handle
+ */
+//TODO Do we need to implement?
 void HeapTable::del(const Handle handle) {
-    //TODO
+    throw TypeError("FIXME");
 }
 
-// Executes SELECT handle FROM table_name WHERE where
+/**
+ * Executes SELECT handle FROM table_name WHERE where
+ * @return a Handle of query result
+ */
 Handles* HeapTable::select(const ValueDict* where) {
     Handles* handles = new Handles();
     BlockIDs* block_ids = file.block_ids();
@@ -280,9 +316,11 @@ Handles* HeapTable::select(const ValueDict* where) {
         RecordIDs* record_ids = block->ids();
         for (auto const& record_id: *record_ids)
             handles->push_back(Handle(block_id, record_id));
+        delete record_ids;
+        delete block;
     }
-    delete record_ids;
-    delete handles;
+    delete block_ids;
+    return handles;
 }
 
 //TODO
@@ -290,14 +328,16 @@ ValueDict* HeapTable::project(Handle handle) {
     //TODO
 }
 
-//TODO Return a sequence of values for handle given column_names
+//TODO
+/**
+ * @return a sequence of values for handle given by column_names.
+ */
 ValueDict* HeapTable::project(Handle handle, const ColumnNames* column_names) {
-    this->file.open();
     auto block_id = this->handle.block_id;
     auto record_id = this->handle.record_id;
     SlottedPage* block = file.get(block_id);
-    Dbt* data = block.get(record_id); //TODO
-    ValueDict* row = unmarshal(data); //TODO use C++ map
+    Dbt* data = block.get(record_id);
+    ValueDict* row = unmarshal(data); //TODO use C++ map ??
     if (column_names == NULL)
         return row;
     else {
@@ -307,9 +347,12 @@ ValueDict* HeapTable::project(Handle handle, const ColumnNames* column_names) {
     }
 }
 
-// Heapfile file;
 
-// Check if the given row is acceptable to insert. Raise ValuerError if not.
+/**
+ * Check if the given row is acceptable to insert. Raise ValuerError if not.
+ * @return ValueDict of //TODO
+ */
+//TODO
 ValueDict* HeapTable::validate(const ValueDict* row) {
     //TODO full_row = {}
     for (auto const& column_name: this->column_names) {
@@ -326,13 +369,20 @@ ValueDict* HeapTable::validate(const ValueDict* row) {
 
 }
 
+/**
+ * Assumes row is fully fleshed-out. Appends a record to thie file.
+ * @return a Handle (a key-value pair of the value written and its loc) //TODO
+ */
 //TODO
 Handle HeapTable::append(const ValueDict* row) {
-    //TODO
+    Handle handle = new Handle();
+    return 
 }
 
-// return the bits to go into the file
-// caller responsible for freeing the returned Dbt and its enclosed ret->get_data().
+/**
+ * Caller responsible for freeing the returned Dbt and its enclodes ret->get_data().
+ * @return a Dbt of the actual bits in a file
+ */
 Dbt* HeapTable::marshal(const ValueDict* row) {
     char *bytes = new char[DbBlock::BLOCK_SZ]; // more than we need (we insist that one row fits into DbBlock::BLOCK_SZ)
     uint offset = 0;
@@ -387,6 +437,48 @@ ValueDict* HeapTable::unmarshal(Dbt* data) {
 };
 
 
-//TODO
-//bool test_heap_storage();
+/**
+ * Copy of Kevin Lundeen's test function for heap_storage classes
+ * @returns boolean indicating passed tests
+ */
+//TODO Call test from main
+bool test_heap_storage() {
+	ColumnNames column_names;
+	column_names.push_back("a");
+	column_names.push_back("b");
+	ColumnAttributes column_attributes;
+	ColumnAttribute ca(ColumnAttribute::INT);
+	column_attributes.push_back(ca);
+	ca.set_data_type(ColumnAttribute::TEXT);
+	column_attributes.push_back(ca);
+    HeapTable table1("_test_create_drop_cpp", column_names, column_attributes);
+    table1.create();
+    std::cout << "create ok" << std::endl;
+    table1.drop();  // drop makes the object unusable because of BerkeleyDB restriction -- maybe want to fix this some day
+    std::cout << "drop ok" << std::endl;
+
+    HeapTable table("_test_data_cpp", column_names, column_attributes);
+    table.create_if_not_exists();
+    std::cout << "create_if_not_exsts ok" << std::endl;
+
+    ValueDict row;
+    row["a"] = Value(12);
+    row["b"] = Value("Hello!");
+    std::cout << "try insert" << std::endl;
+    table.insert(&row);
+    std::cout << "insert ok" << std::endl;
+    Handles* handles = table.select();
+    std::cout << "select ok " << handles->size() << std::endl;
+    ValueDict *result = table.project((*handles)[0]);
+    std::cout << "project ok" << std::endl;
+    Value value = (*result)["a"];
+    if (value.n != 12)
+    	return false;
+    value = (*result)["b"];
+    if (value.s != "Hello!")
+		return false;
+    table.drop();
+
+    return true;
+}
 
