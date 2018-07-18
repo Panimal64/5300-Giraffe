@@ -23,4 +23,4 @@ heap_storage.o : heap_storage.h storage_engine.h
 # Rule for removing all non-source files (so they can get rebuilt from scratch)
 # Note that since it is not the first target, you have to invoke it explicitly: $ make clean
 clean:
-rm -f sql5300 *.o
+	rm -f sql5300 *.o
