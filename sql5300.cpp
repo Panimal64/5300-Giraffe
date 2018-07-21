@@ -7,7 +7,7 @@
 #include <iostream>
 #include <string.h>
 #include "db_cxx.h"
-
+#include "heap_storage.h"
 #include "SQLParser.h"
 #include "sqlhelper.h"
 
@@ -21,14 +21,16 @@ const unsigned int BLOCK_SZ = 4096;
 
 // Forward declard
 string expressionToString(const Expr* expr);
+string operatorToString(const Expr* expr);
 
-
-/**
+	/**
  * Convert the hyrise Expr AST back into the equivalent SQL
  * @param expr expression to unparse
  * @return     SQL equivalent to *expr
  */
-string expressionToString(const Expr *expr) {
+	string
+	expressionToString(const Expr *expr)
+{
 	string ret;
 	switch (expr->type) {
 	case kExprStar:
@@ -50,7 +52,7 @@ string expressionToString(const Expr *expr) {
 		ret += string(expr->name) + "?" + expr->expr->name;
 		break;
 	case kExprOperator:
-		ret += operatorExpressionToString(expr);
+		ret += operatorToString(expr);
 		break;
 	default:
 		ret += "???";  // in case there are exprssion types we don't know about here
@@ -198,7 +200,7 @@ string executeSelect(const SelectStatement* stmt) {
 
     //TODO FROM and WHERE
     ret += " FROM ";
-    ret += tableToString(stmt->fromTable);
+    ret += tableRefInfoToString(stmt->fromTable);
 
     if (stmt->whereClause != NULL)
         ret += " WHERE " + expressionToString(stmt->whereClause);
@@ -222,21 +224,22 @@ string executeInsert(const InsertStatement* stmt) {
  * @returns a string of the SQL statement
  */
 string executeCreate(const CreateStatement* stmt) {
-    string createStatement("CREATE TABLE ");
-    if (stmt->type != CreateStatement::kTable)
-        return ret + "...";
-    if (stmt->ifNotExists)
-        ret += "IF NOT EXISTS";
-    ret += string(stmt->tableName) + " (";
-    bool doComma = false;
-    for (ColumnDefinition *col : *stmt->columns) {
-        if(doComma)
-            ret += ", ";
-        ret += columnDefinitionToString(col);
-        doComma = true;
-    }
-    ret += ")";
-    return ret;
+	string ret("CREATE TABLE ");
+	if (stmt->type != CreateStatement::kTable)
+		return ret + "...";
+	if (stmt->ifNotExists)
+		ret += "IF NOT EXISTS ";
+	ret += string(stmt->tableName) + " (";
+	bool doComma = false;
+	for (ColumnDefinition *col : *stmt->columns)
+	{
+		if (doComma)
+			ret += ", ";
+		ret += columnDefinitionToString(col);
+		doComma = true;
+	}
+	ret += ")";
+	return ret;
 }
 
 /**
@@ -291,8 +294,11 @@ int main(int argc, char **argv) {
 		getline(cin, query);
 		if (query == "quit")
 			break;	// End program
-
-        // Use Hyrise SQL parser to parse input    		
+		else if (query == "test") {
+			std::cout << "test_heap_storage: " << (test_heap_storage() ? "ok" : "failed") << std::endl;
+			continue;
+		}
+		// Use Hyrise SQL parser to parse input    		
 		SQLParserResult* result = SQLParser::parseSQLString(query);
 		
         // Validate SQL statement
