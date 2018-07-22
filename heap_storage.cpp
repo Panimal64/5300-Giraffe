@@ -11,6 +11,9 @@
 typedef u_int16_t u16;
 typedef u_int32_t u32;
 
+
+DbEnv* _DB_ENV;
+
 /**
  * @class SlottedPage - heap file implementation of DbBlock
  * 
@@ -54,7 +57,7 @@ Dbt* SlottedPage::get(RecordID record_id) {
     u16 size; 
     u16 offset;
     get_header(size, offset, record_id);
-    if (offset = 0)
+    if (offset == 0)
         return nullptr;
     else
         return new Dbt(this->address(offset), size);
@@ -66,7 +69,9 @@ Dbt* SlottedPage::get(RecordID record_id) {
 void SlottedPage::put(RecordID record_id, const Dbt &data) throw(DbBlockNoRoomError) {
     u16 size; 
     u16 loc; 
-    get_header(record_id, size, loc);
+
+    get_header(size, loc, record_id);
+
     u16 new_size = (u16)data.get_size();
     if (new_size > size) {
         u16 extra = new_size - size;
@@ -125,6 +130,22 @@ void SlottedPage::get_header(u16 &size, u16 &loc, RecordID id)
     }
     put_n(4*id, size);
     put_n(4*id + 2, loc);
+}
+
+//Stores the id and size of header to a location
+//Defaults to store the header of the entire block when using put_header
+void SlottedPage::put_header(RecordID id, u_int16_t size, u_int16_t loc){
+  //when default
+  if(id == 0)
+    {
+      size = this->num_records;
+      loc = this->end_free;
+    }
+  //sets the size to the address of the header for the record
+  put_n(4*id, size);
+  //sets the two bytes after the size
+  put_n(4*id +2, loc);
+
 }
 
 /**
@@ -189,6 +210,8 @@ void* SlottedPage::address(u16 offset) {
 void HeapFile::create(void) {
     db_open(DB_CREATE | DB_EXCL);
     SlottedPage* block = get_new(); 
+
+    this->put(block);
 }
 
 /**
@@ -228,7 +251,7 @@ SlottedPage* HeapFile::get_new(void) {
     Dbt data(block, sizeof(block));
 
     int block_id = ++this->last;
-    Dbt key(&block, sizeof(block));
+    Dbt key(&block_id, sizeof(block_id));
 
     // write out an empty block and read it back in so Berkeley DB is managing the memory
     SlottedPage* page = new SlottedPage(data, this->last, true);
@@ -253,7 +276,7 @@ SlottedPage* HeapFile::get(BlockID block_id) {
  */
 void HeapFile::put(DbBlock* block) {
     BlockID blockID = block->get_block_id();
-    Dbt key(&block, sizeof(block)); 
+    Dbt key(&blockID, sizeof(blockID)); 
     this->db.put(nullptr, &key, block->get_block(), 0);
 }
 
@@ -262,7 +285,7 @@ void HeapFile::put(DbBlock* block) {
  */
 BlockIDs* HeapFile::block_ids() {
     BlockIDs* blockIDs = new BlockIDs();
-    for (auto i = 1; i < this->last; i++) {
+    for (unsigned i = 1; i < this->last; i++) {
         blockIDs->push_back(i);
     }
     return blockIDs;
@@ -362,6 +385,33 @@ void HeapTable::update(const Handle handle, const ValueDict* new_values) {
 //TODO Do we need to implement?
 void HeapTable::del(const Handle handle) {
     throw DbRelationError("Not Implemented");
+}
+
+/*
+ *  Corresponds to SELECT * FROM
+ *
+ *  Returns handles to the matching rows.
+ */
+Handles* HeapTable::select() {
+  Handles* handles = new Handles();
+
+  BlockIDs* block_ids = file.block_ids();
+
+  for (auto const& block_id: *block_ids) {
+    SlottedPage* block = file.get(block_id);
+    RecordIDs* record_ids = block->ids();
+
+    // returns ALL Rows
+    for (auto const& record_id: *record_ids)
+      handles->push_back(Handle(block_id, record_id));
+
+    delete record_ids;
+    delete block;
+  }
+
+  delete block_ids;
+
+  return handles;
 }
 
 /**

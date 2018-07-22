@@ -130,5 +130,5 @@ protected:
 	virtual ValueDict* unmarshal(Dbt* data);
 };
 
-bool test_heap_storage();
-
+bool test_heap_storage(); 
+ 

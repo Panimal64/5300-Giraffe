@@ -69,7 +69,7 @@ string operatorToString(const Expr* expr);
  * @return
  */
 //TODO from Nina, understand
-string operatorToString(Expr* expr) {
+string operatorToString(const Expr* expr) {
     if (expr == NULL)
         return "null";
 
