@@ -59,7 +59,7 @@ Dbt* SlottedPage::get(RecordID record_id) {
     get_header(size, offset, record_id);
     if (offset == 0)
         return nullptr;
-    else
+     else
         return new Dbt(this->address(offset), size);
 }
 
@@ -220,7 +220,7 @@ void HeapFile::create(void) {
 void HeapFile::drop(void) {
     //TODO drop table
     this->close();
-    db.remove(this->dbfilename.c_str(), nullptr, 0);
+    remove(this->dbfilename.c_str());
 }
 
 /**
@@ -295,16 +295,15 @@ BlockIDs* HeapFile::block_ids() {
 /**
  * Wrapper for Berkeley DB open, which does both open and creation.
  */
-void HeapFile::db_open(uint flags) {
-    const char* path;
-    DB_BTREE_STAT *sp;
+void HeapFile::db_open(uint flags)
+{
     if (!this->closed)
         return;
     this->db.set_re_len(DbBlock::BLOCK_SZ);
-    _DB_ENV->get_home(&path);
+    // _DB_ENV->get_home(&path);
     this->dbfilename = this->name + ".db";
-    this->db.open(nullptr, this->dbfilename.c_str(), nullptr, DB_RECNO, flags, 0644);
-    this->last = db.stat(nullptr, &sp, DB_FAST_STAT);
+    this->db.open(nullptr, this->dbfilename.c_str(), this->name.c_str(), DB_RECNO, (u_int32_t)flags, 0);
+    // this->last = db.stat(nullptr, &sp, DB_FAST_STAT);
     this->closed = false;
 }
 
@@ -320,8 +319,14 @@ HeapTable::HeapTable(Identifier table_name, ColumnNames column_names, ColumnAttr
  */
     void HeapTable::create()
     {
-        this->file.create();
-}
+      try{
+        file.create();
+      }
+      catch(DbException &e)
+      {
+         throw DbRelationError("TABLE IS ALREADY CREATED");
+      }
+    }
 
 /**
  *  If table doesn't exist, create a new one
@@ -364,10 +369,9 @@ void HeapTable::close() {
  * @return a Handle of the inserted row
  */
 Handle HeapTable::insert(const ValueDict* row) {
-    this->file.open();
-    ValueDict* full_row = validate(row);
-    Handle handle = append(full_row);
-    return handle;
+    open();
+   
+    return append(validate(row));
 }
 
 /**
@@ -477,16 +481,36 @@ ValueDict* HeapTable::project(Handle handle, const ColumnNames* column_names) {
  */
 ValueDict* HeapTable::validate(const ValueDict* row) {
     ValueDict* full_row = new ValueDict();
+    uint col_num = 0;
+
+    for (auto const& column_name: this->column_names) {
+      ColumnAttribute ca = this->column_attributes[col_num++];
+      ValueDict::const_iterator column = row->find(column_name);
+      Value value = column->second;
+
+      // If data type not recognized throw error, else push it
+      if (ca.get_data_type() != ColumnAttribute::DataType::INT && ca.get_data_type()
+          != ColumnAttribute::DataType::TEXT) {
+        throw DbRelationError("Only know how to marshal INT and TEXT");
+      }
+      else
+        {
+          full_row->insert(std::pair<Identifier, Value>(column_name, value));
+        }
+    }
+
+    /* 
     for (auto const& column_name: this->column_names)
     {
         Value value;
-        ValueDict::const_iterator column = row->find(column_name);
+        // ValueDict::const_iterator column = row->find(column_name);
         if (column == row->end())
             throw DbRelationError("NULL not supported");
         else
             value = column->second;
         (*full_row)[column_name] = value;    
-    }
+        }
+    */
     return full_row;
 }
 
@@ -495,15 +519,19 @@ ValueDict* HeapTable::validate(const ValueDict* row) {
  * @return a Handle (a key-value pair of the value written and its loc)
  */
 Handle HeapTable::append(const ValueDict* row) {
-    Dbt* data = this->marshal(row);
+    Dbt* data = marshal(row);
     RecordID record_ID;
-    SlottedPage *block = this->file.get(this->file.get_last_block_id());
+    SlottedPage *block = file.get(this->file.get_last_block_id());
     try {
         record_ID = block->add(data);
     } catch (DbBlockNoRoomError &e) {
+        delete block;
         block = this->file.get_new();
         record_ID = block->add(data);
     }
+
+    file.put(block);
+    
     return Handle(this->file.get_last_block_id(), record_ID);
 }
 
@@ -580,6 +608,7 @@ ValueDict* HeapTable::unmarshal(Dbt* data) {
 
 
 /**
+
  * Copy of Kevin Lundeen's test function for heap_storage classes
  * @authore Kevin Lundeen
  * @returns boolean indicating passed tests
