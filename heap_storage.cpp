@@ -53,7 +53,7 @@ RecordID SlottedPage::add(const Dbt* data) throw(DbBlockNoRoomError) {
 /**
  *  Retrieve a record from the block in unmarshalled format
  */
-Dbt* SlottedPage::get(RecordID record_id) {
+Dbt* SlottedPage::get(RecordID record_id) const {
   u16 size;
   u16 offset;
   get_header(size, offset, record_id);
@@ -116,7 +116,7 @@ void SlottedPage::del(RecordID record_id) {
 /**
  */
 
-RecordIDs* SlottedPage::ids(void) {
+RecordIDs* SlottedPage::ids(void) const {
   RecordIDs *record_IDs = new RecordIDs();
 
   for (int record_id = 1; record_id <= this->num_records; record_id++)
@@ -135,7 +135,7 @@ RecordIDs* SlottedPage::ids(void) {
  * @param loc   location of record in block
  * @param RecordID specified record id
  */
-void SlottedPage::get_header(u16 &size, u16 &loc, RecordID id)
+void SlottedPage::get_header(u16 &size, u16 &loc, RecordID id) const
 {
   size = get_n(4*id);
   loc = get_n(4*id + 2);
@@ -162,7 +162,7 @@ void SlottedPage::put_header(RecordID id, u_int16_t size, u_int16_t loc){
  * @param end of block
  * @return boolean indicating if block can fit
  */
-bool SlottedPage::has_room(u16 start) {
+bool SlottedPage::has_room(u16 start) const{
   u16 available = (this->end_free - (u16)((this->num_records) + 1)) * 4;
   return (start <= available);
 }
@@ -208,7 +208,7 @@ void SlottedPage::slide(u16 start, u16 end) {
 }
 
 // Get 2-byte integer at given offset in block.
-u16 SlottedPage::get_n(u16 offset) {
+u16 SlottedPage::get_n(u16 offset) const{
   return *(u16 *)this->address(offset);
 }
 
@@ -219,13 +219,17 @@ void SlottedPage::put_n(u16 offset, u16 n)
 }
 
 // Make a void* pointer for a given offset into the data block.
-void* SlottedPage::address(u16 offset) {
+void* SlottedPage::address(u16 offset) const{
   return (void*)((char*)this->block.get_data() + offset);
 }
 
 /**
  * @class HeapFile - heap file implementation of DbFile
  */
+ HeapFile::HeapFile(std::string name) : DbFile(name), dbfilename(""), last(0), closed(true), db(_DB_ENV, 0) {
+ 	this->dbfilename = this->name + ".db";
+ }
+
 
 /**
  * Create physical file.
@@ -306,7 +310,7 @@ void HeapFile::put(DbBlock* block) {
 /**
  * Sequence of all block ids.
  */
-BlockIDs* HeapFile::block_ids() {
+BlockIDs* HeapFile::block_ids() const {
   BlockIDs* blockIDs = new BlockIDs();
   for (unsigned i = 1; i <= this->last; i++) {
     blockIDs->push_back(i);
@@ -328,6 +332,13 @@ void HeapFile::db_open(uint flags)
   this->db.open(nullptr, this->dbfilename.c_str(), this->name.c_str(), DB_RECNO, (u_int32_t)flags, 0);
   // this->last = db.stat(nullptr, &sp, DB_FAST_STAT);
   this->closed = false;
+}
+
+
+uint32_t HeapFile::get_block_count() {
+	DB_BTREE_STAT* stat;
+	this->db.stat(nullptr, &stat, DB_FAST_STAT);
+	return stat->bt_ndata;
 }
 
 /**
@@ -536,7 +547,7 @@ ValueDict* HeapTable::project(Handle handle, const ColumnNames* column_names) {
  * @param ValueDict of row
  * @return ValueDict of validated row
  */
-ValueDict* HeapTable::validate(const ValueDict* row) {
+ValueDict* HeapTable::validate(const ValueDict* row) const{
   ValueDict* full_row = new ValueDict();
   uint col_num = 0;
 
@@ -597,7 +608,7 @@ Handle HeapTable::append(const ValueDict* row) {
  * @author Kevin Lundeen
  * @return a Dbt of the actual bits in a file
  */
-Dbt* HeapTable::marshal(const ValueDict* row) {
+Dbt* HeapTable::marshal(const ValueDict* row) const{
   char *bytes = new char[DbBlock::BLOCK_SZ]; // more than we need (we insist that one row fits into DbBlock::BLOCK_SZ)
   uint offset = 0;
   uint col_num = 0;
@@ -630,7 +641,7 @@ Dbt* HeapTable::marshal(const ValueDict* row) {
  * @param Dbt of data
  * @return ValueDict of data
  */
-ValueDict* HeapTable::unmarshal(Dbt* data) {
+ValueDict* HeapTable::unmarshal(Dbt* data) const{
   ValueDict *row = new ValueDict();
   Value value;
   char *bytes = (char *)data->get_data();
@@ -670,6 +681,32 @@ ValueDict* HeapTable::unmarshal(Dbt* data) {
     }
   return row;
 }
+
+// See if the row at the given handle satisfies the given where clause
+bool HeapTable::selected(Handle handle, const ValueDict* where) {
+	if (where == nullptr)
+		return true;
+	ValueDict* row = this->project(handle, where);
+	return *row == *where;
+}
+
+void test_set_row(ValueDict &row, int a, std::string b) {
+	row["a"] = Value(a);
+	row["b"] = Value(b);
+}
+
+bool test_compare(DbRelation &table, Handle handle, int a, std::string b) {
+	ValueDict *result = table.project(handle);
+	Value value = (*result)["a"];
+	if (value.n != a) {
+		delete result;
+		return false;
+	}
+	value = (*result)["b"];
+	delete result;
+	return !(value.s != b);
+}
+
 
 
 /**
