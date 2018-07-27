@@ -2,7 +2,6 @@
  * @file SQLExec.cpp - implementation of SQLExec class 
  * @author Kevin Lundeen
  * @see "Seattle University, CPSC5300, Summer 2018"
- * Charlie working on Drop Table and Show Column
  */
 #include "SQLExec.h"
 using namespace std;
