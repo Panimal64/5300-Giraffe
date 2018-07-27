@@ -1,5 +1,5 @@
 /**
- * @file SQLExec.cpp - implementation of SQLExec class 
+ * @file SQLExec.cpp - implementation of SQLExec class
  * @author Kevin Lundeen
  * @see "Seattle University, CPSC5300, Summer 2018"
  */
@@ -48,6 +48,11 @@ QueryResult::~QueryResult() {
 
 QueryResult *SQLExec::execute(const SQLStatement *statement) throw(SQLExecError) {
     // FIXME: initialize _tables table, if not yet present
+    if(!SQLExec::tables)
+    {
+      SQLExec::tables = new Tables();
+
+    }
 
     try {
         switch (statement->type()) {
@@ -61,17 +66,27 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) throw(SQLExecError)
                 return new QueryResult("not implemented");
         }
     } catch (DbRelationError& e) {
-        throw SQLExecError(string("DbRelationError: ") + e.what());
+        throw SQLExecError("Statement not yet handled");
     }
 }
 
 void SQLExec::column_definition(const ColumnDefinition *col, Identifier& column_name,
                                 ColumnAttribute& column_attribute) {
-	throw SQLExecError("not implemented");  // FIXME
+  column_name = col->name;
+  switch (col->type) {
+    case ColumnDefinition::INT:
+      column_attribute.set_data_type(ColumnAttribute::INT);
+      break;
+    case ColumnDefinition::TEXT:
+      column_attribute.set_data_type(ColumnAttribute::TEXT);
+      break;
+    default:
+      throw SQLExecError("Can only handle TEXT or INT");
+  }
 }
 
 QueryResult *SQLExec::create(const CreateStatement *statement) {
-	return new QueryResult("not implemented"); // FIXME
+  return new QueryResult("Not implemented");
 }
 
 // DROP ...
@@ -84,10 +99,34 @@ QueryResult *SQLExec::show(const ShowStatement *statement) {
 }
 
 QueryResult *SQLExec::show_tables() {
-	return new QueryResult("not implemented"); // FIXME
+  std::string message;
+  int count = 0;
+
+  ColumnNames* names = new ColumnNames;
+  names->push_back("table_names");
+
+  ColumnAttributes* attributes = new ColumnAttributes;
+  attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
+
+  Handles* handles = SQLExec::tables->select();
+
+  ValueDicts* rows = new ValueDicts;
+  for (auto const& handle: *handles) {
+    ValueDict* row = SQLExec::tables->project(handle, names);
+
+    if(row->at("table_name").s != "table_names")
+    {
+      rows->push_back(row);
+      count++;
+    }
+  }
+
+  message += "Successfully returned ";
+  message += count;
+  message += " rows\n";
+  return new QueryResult(names, attributes, rows, message);
 }
 
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
 	return new QueryResult("not implemented"); // FIXME
 }
-
