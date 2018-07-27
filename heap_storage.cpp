@@ -226,6 +226,10 @@ void* SlottedPage::address(u16 offset) const{
 /**
  * @class HeapFile - heap file implementation of DbFile
  */
+ HeapFile::HeapFile(std::string name) : DbFile(name), dbfilename(""), last(0), closed(true), db(_DB_ENV, 0) {
+ 	this->dbfilename = this->name + ".db";
+ }
+
 
 /**
  * Create physical file.
@@ -328,6 +332,13 @@ void HeapFile::db_open(uint flags)
   this->db.open(nullptr, this->dbfilename.c_str(), this->name.c_str(), DB_RECNO, (u_int32_t)flags, 0);
   // this->last = db.stat(nullptr, &sp, DB_FAST_STAT);
   this->closed = false;
+}
+
+
+uint32_t HeapFile::get_block_count() {
+	DB_BTREE_STAT* stat;
+	this->db.stat(nullptr, &stat, DB_FAST_STAT);
+	return stat->bt_ndata;
 }
 
 /**
@@ -670,6 +681,32 @@ ValueDict* HeapTable::unmarshal(Dbt* data) const{
     }
   return row;
 }
+
+// See if the row at the given handle satisfies the given where clause
+bool HeapTable::selected(Handle handle, const ValueDict* where) {
+	if (where == nullptr)
+		return true;
+	ValueDict* row = this->project(handle, where);
+	return *row == *where;
+}
+
+void test_set_row(ValueDict &row, int a, std::string b) {
+	row["a"] = Value(a);
+	row["b"] = Value(b);
+}
+
+bool test_compare(DbRelation &table, Handle handle, int a, std::string b) {
+	ValueDict *result = table.project(handle);
+	Value value = (*result)["a"];
+	if (value.n != a) {
+		delete result;
+		return false;
+	}
+	value = (*result)["b"];
+	delete result;
+	return !(value.s != b);
+}
+
 
 
 /**
