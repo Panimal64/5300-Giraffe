@@ -70,13 +70,37 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier& column_
 	throw SQLExecError("not implemented");  // FIXME
 }
 
+//Charlie's used python as guideline
 QueryResult *SQLExec::create(const CreateStatement *statement) {
 	return new QueryResult("not implemented"); // FIXME
 }
 
 // DROP ...
 QueryResult *SQLExec::drop(const DropStatement *statement) {
-	return new QueryResult("not implemented"); // FIXME
+	if (statement->type != DropStatement::kTable){
+	    throw SQLExecError("Unrecognized drop type!");
+	} //from prompt
+
+	Identifier name = statement->name;
+	if (name == Tables::TABLE_NAME || name == Columns::TABLE_NAME){
+	    throw SQLExecError("Cannot drop the schema!");
+	}
+
+	ValueDict select_name;
+	select_name["table_name"] = Value(name);
+
+	DbRelation& table = SQLExec::tables->get_table(name);
+	DbRelation& columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
+	Handles* handles = columns.select(&select_name);
+
+	for(auto const& index: *handles){
+	    columns.del(index);
+	}
+	delete handles;
+
+	table.drop(); //done in order per prompt
+	SQLExec::tables->del(*SQLExec::tables->select(&select_name)->begin());
+	return new QueryResult(string("Dropped ") + name);
 }
 
 QueryResult *SQLExec::show(const ShowStatement *statement) {
@@ -88,6 +112,32 @@ QueryResult *SQLExec::show_tables() {
 }
 
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
-	return new QueryResult("not implemented"); // FIXME
+	std::string message;
+	int length = 0;
+	
+	DbRelation& relation = SQLExec::tables->get_table(Columns::TABLE_NAME);
+	
+	ColumnNames* names = new ColumnNames;
+	names->push_back("table_name");
+	names->push_back("column_name");
+	names->push_back("data_type");
+
+	ColumnAttributes* attributes = new ColumnAttributes;
+	attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
+
+	ValueDict select_name;
+	select_name["table_name"] = Value(statement->tableName);
+	Handles* handles = relation.select(&select_name);
+	length = handles->size();
+
+	ValueDicts* rows = new ValueDicts;
+	for(auto const& index: *handles){
+	    ValueDict* single_row = relation.project(index, names);
+	    rows->push_back(single_row);
+	}
+	delete handles;
+	
+	message = "Successfully returned " + to_string(length) + " rows";
+	return new QueryResult(names, attributes, rows, message); // FIXME
 }
 
