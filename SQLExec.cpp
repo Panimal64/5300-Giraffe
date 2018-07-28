@@ -217,7 +217,7 @@ QueryResult *SQLExec::show_tables() {
   int count = 0;
 
   ColumnNames* names = new ColumnNames;
-  names->push_back("table_names");
+  names->push_back("table_name");
 
   ColumnAttributes* attributes = new ColumnAttributes;
   attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
@@ -228,7 +228,7 @@ QueryResult *SQLExec::show_tables() {
   for (auto const& handle: *handles) {
     ValueDict* row = SQLExec::tables->project(handle, names);
 
-    if(row->at("table_name").s != "table_names")
+    if(row->at("table_name").s != "table_name")
     {
       rows->push_back(row);
       count++;
