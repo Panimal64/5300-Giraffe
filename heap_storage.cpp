@@ -234,11 +234,10 @@ void* SlottedPage::address(u16 offset) const{
 /**
  * Create physical file.
  */
-void HeapFile::create(void) {
-  db_open(DB_CREATE | DB_EXCL);
-  SlottedPage* block = get_new();
-
-  this->put(block);
+  void HeapFile::create(void) {
+  	db_open(DB_CREATE|DB_EXCL);
+  	SlottedPage *page = get_new(); // force one page to exist
+  	delete page;
 }
 
 /**
@@ -272,20 +271,23 @@ void HeapFile::close(void){
  * @author  Kevin Lundeen
  * @return SlottedPage block
  */
-SlottedPage* HeapFile::get_new(void) {
-  char block[DbBlock::BLOCK_SZ];
-  memset(block, 0, sizeof(block));
-  Dbt data(block, sizeof(block));
+ // Allocate a new block for the database file.
+ // Returns the new empty DbBlock that is managing the records in this block and its block id.
+ SlottedPage* HeapFile::get_new(void) {
+ 	char block[DbBlock::BLOCK_SZ];
+ 	memset(block, 0, sizeof(block));
+ 	Dbt data(block, sizeof(block));
 
-  int block_id = ++this->last;
-  Dbt key(&block_id, sizeof(block_id));
+ 	int block_id = ++this->last;
+ 	Dbt key(&block_id, sizeof(block_id));
 
-  // write out an empty block and read it back in so Berkeley DB is managing the memory
-  SlottedPage* page = new SlottedPage(data, this->last, true);
-  this->db.put(nullptr, &key, &data, 0);  // write it out with initialization applied
-  this->db.get(nullptr, &key, &data, 0);
-  return page;
-}
+ 	// write out an empty block and read it back in so Berkeley DB is managing the memory
+ 	SlottedPage* page = new SlottedPage(data, this->last, true);
+ 	this->db.put(nullptr, &key, &data, 0); // write it out with initialization done to it
+ 	delete page;
+ 	this->db.get(nullptr, &key, &data, 0);
+ 	return new SlottedPage(data, this->last);
+ }
 
 /**
  * Get a block from the database file.
@@ -346,34 +348,27 @@ uint32_t HeapFile::get_block_count() {
  */
 HeapTable::HeapTable(Identifier table_name, ColumnNames column_names, ColumnAttributes column_attributes) : DbRelation(table_name, column_names, column_attributes), file(table_name)
 {
+
 }
 
 /**
  *  Executes CREATE_TABLE table_name { cols }
  */
-void HeapTable::create()
-{
-  try{
-    file.create();
-  }
-  catch(DbException &e)
-    {
-      throw DbRelationError("TABLE IS ALREADY CREATED");
-    }
-}
+ // Execute: CREATE TABLE <table_name> ( <columns> )
+ // Is not responsible for metadata storage or validation.
+ void HeapTable::create() {
+ 	file.create();
+ }
 
-/**
- *  If table doesn't exist, create a new one
- */
-void HeapTable::create_if_not_exists() {
-  try {
-    this->file.open();
-  }
-  catch (DbException &e)
-    {
-      this->file.create();
-    }
-}
+ // Execute: CREATE TABLE IF NOT EXISTS <table_name> ( <columns> )
+ // Is not responsible for metadata storage or validation.
+ void HeapTable::create_if_not_exists() {
+ 	try {
+ 		open();
+ 	} catch (DbException& e) {
+ 		create();
+ 	}
+ }
 
 /**
  * Executes a DROP TABLE table_name
