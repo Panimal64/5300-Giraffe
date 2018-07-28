@@ -11,7 +11,7 @@ bool test_compare(DbRelation &table, Handle handle, int a, string b) {
     value = (*result)["b"];
     delete result;
     return !(value.s != b);
-}i
+}
 
 
 
