@@ -88,6 +88,7 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier& column_
 
 // Code mainly translated from Python
 QueryResult *SQLExec::create(const CreateStatement *statement) {
+
   // update _tables schema
   Identifier name = statement->tableName;
   ValueDict row;
@@ -200,7 +201,15 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
 }
 
 QueryResult *SQLExec::show(const ShowStatement *statement) {
-	return new QueryResult("not implemented"); // FIXME
+	switch(statement->type)
+  {
+    case ShowStatement::kTables:
+      return show_tables();
+    case ShowStatement::kColumns:
+      return show_columns(statement);
+    default:
+      throw SQLExecError("Can only show _tables or _columns");
+  }
 }
 
 QueryResult *SQLExec::show_tables() {
@@ -235,9 +244,9 @@ QueryResult *SQLExec::show_tables() {
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
 	std::string message;
 	int length = 0;
-	
+
 	DbRelation& relation = SQLExec::tables->get_table(Columns::TABLE_NAME);
-	
+
 	ColumnNames* names = new ColumnNames;
 	names->push_back("table_name");
 	names->push_back("column_name");
@@ -257,7 +266,7 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
 	    rows->push_back(single_row);
 	}
 	delete handles;
-	
+
 	message = "Successfully returned " + to_string(length) + " rows";
 	return new QueryResult(names, attributes, rows, message); // FIXME
 }
