@@ -85,8 +85,89 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier& column_
   }
 }
 
+// Code mainly translated from Python
 QueryResult *SQLExec::create(const CreateStatement *statement) {
-  return new QueryResult("Not implemented");
+  // update _tables schema
+  Identifier name = statement->tableName;
+  ValueDict row;
+  row["table_name"] = name;
+  Handle tableHandle = SQLExec::tables->insert(&row);
+
+  ColumnNames column_order;
+  ColumnAttributes column_attributes;
+
+  Identifier columnName;
+  ColumnAttribute attribute;
+  for(ColumnDefinition *column : *statement->columns)
+  {
+    column_definition(column, columnName, attribute);
+    column_order.push_back(columnName);
+    column_attributes.push_back(attribute);
+  }
+
+  try
+  {
+    // update _columns schema
+    Handles columnHandles;
+    DbRelation& _columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
+    try{
+      int count = 0;
+      for(auto const& column_name : column_order)
+      {
+        row["column_name"] = column_name;
+
+        switch(column_attributes[count].get_data_type())
+        {
+          case ColumnAttribute::INT:
+            row["data_type"] = Value("INT");
+          case ColumnAttribute::TEXT:
+            row["data_type"] = Value("TEXT");
+          default:
+            throw SQLExecError("Can only handle TEXT or INT");
+        }
+
+       columnHandles.push_back(_columns.insert(&row));
+       count++;
+     }
+
+     // Create table
+     DbRelation& _tables = SQLExec::tables->get_table(name);
+     if(statement->ifNotExists)
+      _tables.create_if_not_exists();
+     else
+      _tables.create();
+   }
+   catch(exception &e)
+   {
+     // attempt to undo the insertions into _columns
+     try{
+
+        for(auto const &h : columnHandles)
+        {
+          _columns.del(h);
+        }
+      }
+      catch(exception &e)
+      {
+
+      }
+      throw "Unable to insert into _columns";
+   }
+  }
+  catch(exception& e)
+  {
+    // attempt to undo the insertion into _tables
+    try{
+      tables->del(tableHandle);
+    }
+    catch(exception& e)
+    {
+
+    }
+    throw "Unable to insert into _tables";
+  }
+
+  return new QueryResult("created" + name);
 }
 
 // DROP ...
