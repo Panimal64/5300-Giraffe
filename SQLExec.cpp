@@ -42,7 +42,16 @@ ostream &operator<<(ostream &out, const QueryResult &qres) {
 }
 
 QueryResult::~QueryResult() {
-	// FIXME
+  if(column_names)
+    delete column_names;
+  if(column_attributes)
+    delete column_attributes;
+  if(rows)
+  {
+    for (ValueDict *row: *rows)
+      delete row;
+    delete rows;
+  }
 }
 
 
@@ -88,12 +97,14 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier& column_
 
 // Code mainly translated from Python
 QueryResult *SQLExec::create(const CreateStatement *statement) {
+  if(statement->type != CreateStatement::kTable)
+    return new QueryResult("Only handling CREATE TABLE at the moment");
 
   // update _tables schema
   Identifier name = statement->tableName;
   ValueDict row;
   row["table_name"] = name;
-  Handle tableHandle = SQLExec::tables->insert(&row);
+
 
   ColumnNames column_order;
   ColumnAttributes column_attributes;
@@ -106,6 +117,8 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     column_order.push_back(columnName);
     column_attributes.push_back(attribute);
   }
+
+  Handle tableHandle = SQLExec::tables->insert(&row);
 
   try
   {
@@ -122,8 +135,10 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
         {
           case ColumnAttribute::INT:
             row["data_type"] = Value("INT");
+            break;
           case ColumnAttribute::TEXT:
             row["data_type"] = Value("TEXT");
+            break;
           default:
             throw SQLExecError("Can only handle TEXT or INT");
         }
@@ -169,7 +184,7 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     throw "Unable to insert into _tables";
   }
 
-  return new QueryResult("created" + name);
+  return new QueryResult("Created " + name);
 }
 
 // DROP ...
@@ -228,7 +243,7 @@ QueryResult *SQLExec::show_tables() {
   for (auto const& handle: *handles) {
     ValueDict* row = SQLExec::tables->project(handle, names);
 
-    if(row->at("table_name").s != "table_name")
+    if(row->at("table_name").s != "table_names")
     {
       rows->push_back(row);
       count++;
@@ -236,7 +251,7 @@ QueryResult *SQLExec::show_tables() {
   }
 
   message += "Successfully returned ";
-  message += count;
+  message += to_string(count);
   message += " rows\n";
   return new QueryResult(names, attributes, rows, message);
 }
