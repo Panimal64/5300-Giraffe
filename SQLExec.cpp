@@ -94,9 +94,20 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier& column_
   }
 }
 
+QueryResult *SQLExec::create(const CreateStatement *statement) {
+    switch(statement->type) {
+	case CreateStatement::kTable:
+	    return create_table(statement);
+	case CreateStatement::kIndex:
+	    return create_index(statement);
+	default:
+	    return new QueryResult("Only CREATE TABLE and CREATE INDEX are implemented");
+    }
+}
+
 
 // Code mainly translated from Python
-QueryResult *SQLExec::create(const CreateStatement *statement) {
+QueryResult *SQLExec::create_table(const CreateStatement *statement) {
   if(statement->type != CreateStatement::kTable)
     return new QueryResult("Only handling CREATE TABLE at the moment");
 
@@ -187,8 +198,25 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
   return new QueryResult("Created " + name);
 }
 
-// DROP ...
+// FIX ME
+QueryResult *SQLExec::create_index(const CreateStatement *statement){
+    return new QueryResult("create index not yet implemented");
+}
+
+
 QueryResult *SQLExec::drop(const DropStatement *statement) {
+    switch(statement->type) {
+	case DropStatement::kTable:
+	    return drop_table(statement);
+	case DropStatement::kIndex:
+	    return drop_index(statement);
+	default:
+	    return new QueryResult("Only DROP TABLE and CREATE INDEX are implemented");
+    }
+}
+
+// DROP ...
+QueryResult *SQLExec::drop_table(const DropStatement *statement) {
 	if (statement->type != DropStatement::kTable){
 	    throw SQLExecError("Unrecognized drop type!");
 	} //from prompt
@@ -215,6 +243,12 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
 	return new QueryResult(string("Dropped ") + name);
 }
 
+// FIX ME
+QueryResult *SQLExec::drop_index(const DropStatement *statement){
+    return new QueryResult("drop index not implemented");
+}
+
+
 QueryResult *SQLExec::show(const ShowStatement *statement) {
 	switch(statement->type)
   {
@@ -222,9 +256,16 @@ QueryResult *SQLExec::show(const ShowStatement *statement) {
       return show_tables();
     case ShowStatement::kColumns:
       return show_columns(statement);
+    case ShowStatement::kIndex:
+      return show_index(statement);
     default:
       throw SQLExecError("Can only show _tables or _columns");
   }
+}
+
+// FIX ME
+QueryResult *SQLExec::show_index(const ShowStatement *statement){
+    return new QueryResult("show index not yet implemented");
 }
 
 QueryResult *SQLExec::show_tables() {
