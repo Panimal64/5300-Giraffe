@@ -4,11 +4,13 @@
  * @see "Seattle University, CPSC5300, Summer 2018"
  */
 #include "SQLExec.h"
+#include <algorithm>
 using namespace std;
 using namespace hsql;
 
 // define static data
 Tables* SQLExec::tables = nullptr;
+Indices* SQLExec::indices = nullptr;
 
 // make query result be printable
 ostream &operator<<(ostream &out, const QueryResult &qres) {
@@ -58,10 +60,9 @@ QueryResult::~QueryResult() {
 QueryResult *SQLExec::execute(const SQLStatement *statement) throw(SQLExecError) {
     // FIXME: initialize _tables table, if not yet present
     if(!SQLExec::tables)
-    {
       SQLExec::tables = new Tables();
-
-    }
+    if(!SQLExec::indices)
+      SQLExec::indices = new Indices();
 
     try {
         switch (statement->type()) {
@@ -186,7 +187,7 @@ QueryResult *SQLExec::create_table(const CreateStatement *statement) {
   {
     // attempt to undo the insertion into _tables
     try{
-      tables->del(tableHandle);
+      SQLExec::tables->del(tableHandle);
     }
     catch(exception& e)
     {
@@ -200,7 +201,110 @@ QueryResult *SQLExec::create_table(const CreateStatement *statement) {
 
 // FIX ME
 QueryResult *SQLExec::create_index(const CreateStatement *statement){
-    return new QueryResult("create index not yet implemented");
+  // Get the underlying table.
+  Identifier tableName = statement->tableName;
+  // DbRelation& _tables = SQLExec::tables->get_table(tableName);
+
+  /*
+  if(!_tables)
+  {
+    return new QueryResult("Table not created");
+  }
+  */
+
+  // Check that all the index columns exist in the table.
+  ColumnNames column_order;
+  ColumnAttributes column_attributes;
+
+  ColumnAttribute attribute;
+
+  ColumnNames table_column_order;
+  ColumnAttributes table_column_attributes;
+
+  SQLExec::tables->get_columns(tableName, table_column_order, table_column_attributes);
+
+  bool found;
+  int count;
+
+  for(Identifier columnName: *statement->indexColumns)
+  {
+    found = false;
+    count = 0;
+
+    for(auto const& tableColumn : table_column_order)
+    {
+      if(columnName == tableColumn)
+      {
+        found = true;
+        column_order.push_back(columnName);
+        column_attributes.push_back(table_column_attributes[0]);
+        count++;
+      }
+    }
+    if(!found)
+    {
+      std::cout << "Column not found" << endl;
+      throw "Column not found";
+    }
+  }
+
+  Identifier indexName = statement->indexName;
+  ValueDict row;
+  row["index_name"] = indexName;
+
+
+  // Insert a row for each column in index key into _indices.
+  // I recommend having a static reference to _indices in SQLExec, as we do for _tables.
+
+    Handles indexHandles;
+    DbRelation& _indices = SQLExec::tables->get_table(Indices::TABLE_NAME);
+    try{
+      int count = 0;
+      for(auto const& column_name : column_order)
+      {
+        row["column_name"] = column_name;
+
+        switch(column_attributes[count].get_data_type())
+        {
+          case ColumnAttribute::INT:
+            row["data_type"] = Value("INT");
+            break;
+          case ColumnAttribute::TEXT:
+            row["data_type"] = Value("TEXT");
+            break;
+          case ColumnAttribute::BOOLEAN:
+            row["data_type"] = Value("BOOLEAN");
+          default:
+            throw SQLExecError("Can only handle TEXT, INT, or BOOLEAN");
+        }
+
+        indexHandles.push_back(_indices.insert(&row));
+       count++;
+     }
+
+     // Call get_index to get a reference to the new index and then invoke the create method on it.
+     DbIndex& _indices = SQLExec::indices->get_index(tableName, indexName);
+
+      _indices.create();
+   }
+   catch(exception &e)
+   {
+     // attempt to undo the insertions into _columns
+     try{
+
+        for(auto const &h : indexHandles)
+        {
+          _indices.del(h);
+        }
+      }
+      catch(exception &e)
+      {
+
+      }
+      throw "Unable to insert into _columns";
+   }
+
+    return new QueryResult("Created " + indexName);
 }
 
 
@@ -211,7 +315,7 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
 	case DropStatement::kIndex:
 	    return drop_index(statement);
 	default:
-	    return new QueryResult("Only DROP TABLE and CREATE INDEX are implemented");
+	    return new QueryResult("Only DROP TABLE and DROP INDEX are implemented");
     }
 }
 
