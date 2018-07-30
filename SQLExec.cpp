@@ -205,12 +205,11 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
   Identifier tableName = statement->tableName;
   // DbRelation& _tables = SQLExec::tables->get_table(tableName);
 
-  /*
-  if(!_tables)
-  {
-    return new QueryResult("Table not created");
-  }
-  */
+
+
+
+
+
 
   // Check that all the index columns exist in the table.
   ColumnNames column_order;
@@ -251,19 +250,34 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
   Identifier indexName = statement->indexName;
   ValueDict row;
   row["index_name"] = indexName;
+  row["seq_in_index"] = 0;
 
+  Identifier indexType = statement->indexType;
+  row["index_type"]  = indexType;
+
+  if(indexType == "BTREE")
+    row["is_unique"] = true;
+  else if (indexType == "HASH")
+    row["is_unique"] = false;
+  else
+  {
+    indexType = "BTREE";
+    row["index_type"]  = indexType;
+    row["is_unique"] = true;
+  }
 
   // Insert a row for each column in index key into _indices.
   // I recommend having a static reference to _indices in SQLExec, as we do for _tables.
 
-    Handles indexHandles;
-    DbRelation& _indices = SQLExec::tables->get_table(Indices::TABLE_NAME);
 
-    try{
-      int count = 0;
+    //DbRelation& _indices = SQLExec::tables->get_table(Indices::TABLE_NAME);
+
+
+      count = 0;
       for(auto const& column_name : column_order)
       {
         row["column_name"] = column_name;
+        // row["seq_in_index"];
 
         switch(column_attributes[count].get_data_type())
         {
@@ -280,31 +294,15 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
             throw SQLExecError("Can only handle TEXT, INT, or BOOLEAN");
         }
 
-        indexHandles.push_back(_indices.insert(&row));
-       count++;
+        SQLExec::indices-> insert(&row);
+        count++;
      }
 
      // Call get_index to get a reference to the new index and then invoke the create method on it.
-     DbIndex& _indices = SQLExec::indices->get_index(tableName, indexName);
+     DbIndex& index = SQLExec::indices->get_index(tableName, indexName);
 
-      _indices.create();
-   }
-   catch(exception &e)
-   {
-     // attempt to undo the insertions into _columns
-     try{
+      index.create();
 
-        for(auto const &h : indexHandles)
-        {
-          _indices.del(h);
-        }
-      }
-      catch(exception &e)
-      {
-
-      }
-      throw "Unable to insert into _columns";
-   }
 
     return new QueryResult("Created " + indexName);
 }
