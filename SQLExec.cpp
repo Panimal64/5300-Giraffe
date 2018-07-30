@@ -199,7 +199,7 @@ QueryResult *SQLExec::create_table(const CreateStatement *statement) {
   return new QueryResult("Created " + name);
 }
 
-// FIX ME
+
 QueryResult *SQLExec::create_index(const CreateStatement *statement){
   // Get the underlying table.
   Identifier tableName = statement->tableName;
@@ -237,7 +237,7 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
       {
         found = true;
         column_order.push_back(columnName);
-        column_attributes.push_back(table_column_attributes[0]);
+        column_attributes.push_back(table_column_attributes[count]);
         count++;
       }
     }
@@ -258,6 +258,7 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
 
     Handles indexHandles;
     DbRelation& _indices = SQLExec::tables->get_table(Indices::TABLE_NAME);
+
     try{
       int count = 0;
       for(auto const& column_name : column_order)
@@ -274,6 +275,7 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
             break;
           case ColumnAttribute::BOOLEAN:
             row["data_type"] = Value("BOOLEAN");
+            break;
           default:
             throw SQLExecError("Can only handle TEXT, INT, or BOOLEAN");
         }
@@ -335,7 +337,7 @@ QueryResult *SQLExec::drop_table(const DropStatement *statement) {
 
 	DbRelation& table = SQLExec::tables->get_table(name);
 	DbRelation& columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
-	
+
 	//get indices for deletion
 	IndexNames all_indices = SQLExec::indices->get_index_names(name);
 	for (auto const& index: all_indices){
@@ -347,7 +349,7 @@ QueryResult *SQLExec::drop_table(const DropStatement *statement) {
 	    }
 	    delete temp_handles;
 	}
-	
+
 	Handles* handles = columns.select(&select_name);
 
 	for(auto const& row: *handles){
@@ -375,7 +377,7 @@ QueryResult *SQLExec::drop_index(const DropStatement *statement){
     for (auto const& handle: *handles){
 	SQLExec::indices->del(handle);
     }
-    
+
     delete handles;
 
     return new QueryResult("Dropped index: " + index_name);
@@ -412,10 +414,10 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement){
     attributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
     attributes->push_back(ColumnAttribute(ColumnAttribute::INT));
     attributes->push_back(ColumnAttribute(ColumnAttribute::BOOLEAN));
-    
+
     ValueDict select_name;
     select_name["table_name"] = Value(statement->tableName);
-    
+
     Handles* handles = SQLExec::indices->select(&select_name);
     length = handles->size();
     ValueDicts* index_rows;
@@ -424,7 +426,7 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement){
 	index_rows->push_back(row);
     }
     delete handles;
-    
+
     message += "Successfully returned ";
     message += to_string(length);
     message += " rows";
