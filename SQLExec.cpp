@@ -205,12 +205,6 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
   Identifier tableName = statement->tableName;
   // DbRelation& _tables = SQLExec::tables->get_table(tableName);
 
-
-
-
-
-
-
   // Check that all the index columns exist in the table.
   ColumnNames column_order;
   ColumnAttributes column_attributes;
@@ -249,8 +243,11 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
 
   Identifier indexName = statement->indexName;
   ValueDict row;
+  int seq_in_index = 0;
+
   row["index_name"] = indexName;
-  row["seq_in_index"] = 0;
+  row["table_name"] = tableName;
+  row["seq_in_index"] = seq_in_index++;
 
   Identifier indexType = statement->indexType;
   row["index_type"]  = indexType;
@@ -269,15 +266,11 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
   // Insert a row for each column in index key into _indices.
   // I recommend having a static reference to _indices in SQLExec, as we do for _tables.
 
-
-    //DbRelation& _indices = SQLExec::tables->get_table(Indices::TABLE_NAME);
-
-
       count = 0;
       for(auto const& column_name : column_order)
       {
         row["column_name"] = column_name;
-        // row["seq_in_index"];
+        row["seq_in_index"] = seq_in_index++;
 
         switch(column_attributes[count].get_data_type())
         {
@@ -294,14 +287,14 @@ QueryResult *SQLExec::create_index(const CreateStatement *statement){
             throw SQLExecError("Can only handle TEXT, INT, or BOOLEAN");
         }
 
-        SQLExec::indices-> insert(&row);
+        SQLExec::indices->insert(&row);
         count++;
      }
 
      // Call get_index to get a reference to the new index and then invoke the create method on it.
      DbIndex& index = SQLExec::indices->get_index(tableName, indexName);
 
-      index.create();
+     index.create();
 
 
     return new QueryResult("Created " + indexName);
