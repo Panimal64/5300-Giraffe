@@ -79,7 +79,7 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) throw(SQLExecError)
                 return new QueryResult("not implemented");
         }
     } catch (DbRelationError& e) {
-        throw SQLExecError("Statement not yet handled");
+        throw SQLExecError(string("DbRelationError: ") + e.what());
     }
 }
 
