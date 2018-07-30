@@ -31,6 +31,9 @@ ostream &operator<<(ostream &out, const QueryResult &qres) {
                     case ColumnAttribute::TEXT:
                         out << "\"" << value.s << "\"";
                         break;
+		    case ColumnAttribute::BOOLEAN:
+			out << (value.n == 0 ? "false" : "true");
+			break;
                     default:
                         out << "???";
                 }
@@ -360,8 +363,8 @@ QueryResult *SQLExec::drop_index(const DropStatement *statement){
 
     DbIndex& index = SQLExec::indices->get_index(table_name, index_name);
     ValueDict select_name;
-    select_name["table_name"];
-    select_name["index_name"];
+    select_name["table_name"] = Value(table_name);
+    select_name["index_name"] = Value(index_name);
 
     Handles* handles = SQLExec::indices->select(&select_name);
     index.drop();
@@ -411,7 +414,7 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement){
 
     Handles* handles = SQLExec::indices->select(&select_name);
     length = handles->size();
-    ValueDicts* index_rows;
+    ValueDicts* index_rows = new ValueDicts();
     for (auto const& handle: *handles){
 	ValueDict* row = SQLExec::indices->project(handle, column_names);
 	index_rows->push_back(row);
