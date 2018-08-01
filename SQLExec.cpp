@@ -112,94 +112,94 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
 
 // Code mainly translated from Python
 QueryResult *SQLExec::create_table(const CreateStatement *statement) {
-  if(statement->type != CreateStatement::kTable)
-    return new QueryResult("Only handling CREATE TABLE at the moment");
+  if (statement->type != CreateStatement::kTable)
+		return new QueryResult("Only handling CREATE TABLE at the moment");
 
-  // update _tables schema
-  Identifier name = statement->tableName;
-  ValueDict row;
-  row["table_name"] = name;
+	// update _tables schema
+	Identifier name = statement->tableName;
+	ValueDict row;
+	row["table_name"] = name;
 
 
-  ColumnNames column_order;
-  ColumnAttributes column_attributes;
+	ColumnNames column_order;
+	ColumnAttributes column_attributes;
 
-  Identifier columnName;
-  ColumnAttribute attribute;
-  for(ColumnDefinition *column : *statement->columns)
-  {
-    column_definition(column, columnName, attribute);
-    column_order.push_back(columnName);
-    column_attributes.push_back(attribute);
-  }
+	Identifier columnName;
+	ColumnAttribute attribute;
+	for (ColumnDefinition *column : *statement->columns)
+	{
+		column_definition(column, columnName, attribute);
+		column_order.push_back(columnName);
+		column_attributes.push_back(attribute);
+	}
 
-  Handle tableHandle = SQLExec::tables->insert(&row);
+	Handle tableHandle = SQLExec::tables->insert(&row);
 
-  try
-  {
-    // update _columns schema
-    Handles columnHandles;
-    DbRelation& _columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
-    try{
-      int count = 0;
-      for(auto const& column_name : column_order)
-      {
-        row["column_name"] = column_name;
+	try
+	{
+		// update _columns schema
+		Handles columnHandles;
+		DbRelation& _columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
+		try {
+			int count = 0;
+			for (auto const& column_name : column_order)
+			{
+				row["column_name"] = column_name;
 
-        switch(column_attributes[count].get_data_type())
-        {
-          case ColumnAttribute::INT:
-            row["data_type"] = Value("INT");
-            break;
-          case ColumnAttribute::TEXT:
-            row["data_type"] = Value("TEXT");
-            break;
-          default:
-            throw SQLExecError("Can only handle TEXT or INT");
-        }
+				switch (column_attributes[count].get_data_type())
+				{
+				case ColumnAttribute::INT:
+					row["data_type"] = Value("INT");
+					break;
+				case ColumnAttribute::TEXT:
+					row["data_type"] = Value("TEXT");
+					break;
+				default:
+					throw SQLExecError("Can only handle TEXT or INT");
+				}
 
-       columnHandles.push_back(_columns.insert(&row));
-       count++;
-     }
+				columnHandles.push_back(_columns.insert(&row));
+				count++;
+			}
 
-     // Create table
-     DbRelation& _tables = SQLExec::tables->get_table(name);
-     if(statement->ifNotExists)
-      _tables.create_if_not_exists();
-     else
-      _tables.create();
-   }
-   catch(exception &e)
-   {
-     // attempt to undo the insertions into _columns
-     try{
+			// Create table
+			DbRelation& _tables = SQLExec::tables->get_table(name);
+			if (statement->ifNotExists)
+				_tables.create_if_not_exists();
+			else
+				_tables.create();
+		}
+		catch (exception &e)
+		{
+			// attempt to undo the insertions into _columns
+			try {
 
-        for(auto const &h : columnHandles)
-        {
-          _columns.del(h);
-        }
-      }
-      catch(exception &e)
-      {
+				for (auto const &h : columnHandles)
+				{
+					_columns.del(h);
+				}
+			}
+			catch (exception &e)
+			{
 
-      }
-      throw "Unable to insert into _columns";
-   }
-  }
-  catch(exception& e)
-  {
-    // attempt to undo the insertion into _tables
-    try{
-      SQLExec::tables->del(tableHandle);
-    }
-    catch(exception& e)
-    {
+			}
+			throw;
+		}
+	}
+	catch (exception& e)
+	{
+		// attempt to undo the insertion into _tables
+		try {
+			SQLExec::tables->del(tableHandle);
+		}
+		catch (exception& e)
+		{
 
-    }
-    throw "Unable to insert into _tables";
-  }
+		}
+		throw;
+	}
 
-  return new QueryResult("Created " + name);
+	return new QueryResult("Created " + name);
 }
 
 
@@ -444,12 +444,14 @@ QueryResult *SQLExec::show_tables() {
   for (auto const& handle: *handles) {
     ValueDict* row = SQLExec::tables->project(handle, names);
 
-    if(row->at("table_name").s != "table_names")
-    {
-      rows->push_back(row);
-      count++;
-    }
-  }
+    if (row->at("table_name").s != Tables::TABLE_NAME && 
+			row->at("table_name").s != Columns::TABLE_NAME &&
+			row->at("table_name").s != Indices::TABLE_NAME)
+		{
+			rows->push_back(row);
+			count++;
+		}  
+}
 
   message += "Successfully returned ";
   message += to_string(count);
