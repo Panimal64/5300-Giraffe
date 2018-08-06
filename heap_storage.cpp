@@ -354,6 +354,16 @@ Handles* HeapTable::select(const ValueDict* where) {
 	return handles;
 }
 
+// Refine another selection
+Handles* HeapTable::select(Handles *current_selection, const ValueDict* where) {
+		    Handles* handles = new Handles();
+		    for (auto const& handle : *current_selection)
+		        if (selected(handle, where))
+		            handles->push_back(handle);
+		    return handles;
+	
+}
+
 // Return a sequence of all values for handle.
 ValueDict* HeapTable::project(Handle handle) {
 	return project(handle, &this->column_names);
