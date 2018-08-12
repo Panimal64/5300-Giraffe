@@ -26,7 +26,7 @@ BTreeIndex::BTreeIndex(DbRelation& relation, Identifier name, ColumnNames key_co
 }
 
 /**Figure out the data types of each key component and encode them in self.key_profile, 
-a list of int / str classes.
+a list of int / str class.
 */
 void BTreeIndex::build_key_profile() {
 	for (ColumnAttribute col_attr: *relation.get_column_attributes(this->key_columns)) {
