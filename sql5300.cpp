@@ -1,6 +1,6 @@
 /**
  * @file sql5300.cpp - main entry for the relation manaager's SQL shell
- * @author Kevin Lundeen
+ * @author Kevin Lundeen, Minh Nguyen, Dave Pannu
  * @see "Seattle University, cpsc4300/5300, summer 2018"
  */
 #include <stdio.h>
@@ -13,6 +13,8 @@
 #include "SQLParser.h"
 #include "ParseTreeToString.h"
 #include "SQLExec.h"
+#include "btree.h"
+
 using namespace std;
 using namespace hsql;
 
@@ -46,6 +48,7 @@ int main(int argc, char *argv[]) {
 			break;  // only way to get out
 		if (query == "test") {
 			cout << "test_heap_storage: " << (test_heap_storage() ? "ok" : "failed") << endl;
+			cout << "test_btree: " << (test_btree() ? "ok" : "failed") << endl; //include Btree test
 			continue;
 		}
 

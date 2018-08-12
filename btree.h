@@ -35,4 +35,6 @@ protected:
 };
 
 bool test_btree();
+bool testbtree_compare(BTreeIndex &indx, HeapTable &table1, ValueDict *test, ValueDict *compare);
+
 

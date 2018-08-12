@@ -11,7 +11,7 @@
 
 #include "db_cxx.h"
 #include "storage_engine.h"
-
+typedef uint16_t u16;
 /**
  * @class SlottedPage - heap file implementation of DbBlock.
  *
@@ -47,16 +47,17 @@ public:
 	virtual u_int16_t size() const;
 
 protected:
+	
 	uint16_t num_records;
 	uint16_t end_free;
 
-	virtual void get_header(uint16_t &size, uint16_t &loc, RecordID id=0) const;
-	virtual void put_header(RecordID id=0, uint16_t size=0, uint16_t loc=0);
-	virtual bool has_room(uint16_t size) const;
-	virtual void slide(uint16_t start, uint16_t end);
-	virtual uint16_t get_n(uint16_t offset) const;
-	virtual void put_n(uint16_t offset, uint16_t n);
-	virtual void* address(uint16_t offset) const;
+	virtual void get_header(u16 &size, u16 &loc, RecordID id =0) const;
+	virtual void put_header(RecordID id=0, u16 size=0, u16 loc=0);
+	virtual bool has_room(u16 size) const;
+	virtual void slide(u16 start, u16 end);
+	virtual uint16_t get_n(u16 offset) const;
+	virtual void put_n(u16 offset, u16 n);
+	virtual void* address(u16 offset) const;
 };
 
 /**
