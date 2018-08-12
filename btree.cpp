@@ -11,8 +11,7 @@ using namespace std;
 
 /**The B+ Tree index.
 Only unique indices are supported.Try adding the primary key value to the index key to make it unique,
-if necessary.
-Only insertion for the moment.
+if necessary. Only insertion and lookup for the moment.
 */
 BTreeIndex::BTreeIndex(DbRelation& relation, Identifier name, ColumnNames key_columns, bool unique)
         : DbIndex(relation, name, key_columns, unique),
